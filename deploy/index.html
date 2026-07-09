@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tetris</title>
+<meta name="description" content="A neon browser Tetris game.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; padding: 0; background: #07080D; color: #F4F4F4; font-family: 'Space Grotesk', sans-serif; }
+  a { color: #00E5FF; text-decoration: none; }
+  a:hover { color: #7DF3FF; }
+  * { box-sizing: border-box; }
+  button { font-family: inherit; }
+
+  @keyframes lvlpulse { 0% { transform: scale(1); text-shadow: 0 0 0 rgba(0,229,255,0); } 30% { transform: scale(1.45); color: #00E5FF; text-shadow: 0 0 18px rgba(0,229,255,0.9); } 100% { transform: scale(1); text-shadow: 0 0 0 rgba(0,229,255,0); } }
+  @keyframes ovfade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes ovpop { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes neonbreathe { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+
+  .page {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+    background:
+      radial-gradient(1000px 700px at 50% 20%, rgba(0,229,255,0.06) 0%, rgba(0,0,0,0) 55%),
+      radial-gradient(800px 600px at 80% 90%, rgba(226,77,255,0.05) 0%, rgba(0,0,0,0) 60%),
+      #07080D;
+  }
+  .layout { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; justify-content: center; }
+  .col { display: flex; flex-direction: column; gap: 18px; width: 172px; }
+  .panel {
+    background: rgba(12,16,26,0.92); border: 1px solid rgba(0,229,255,0.16); border-radius: 12px; padding: 16px;
+    box-shadow: 0 0 28px rgba(0,229,255,0.05), inset 0 0 22px rgba(0,229,255,0.03);
+  }
+  .label { font-size: 12px; font-weight: 600; letter-spacing: 0.18em; color: #5FD9EC; text-shadow: 0 0 10px rgba(0,229,255,0.45); margin-bottom: 10px; }
+  .controls-grid { display: grid; grid-template-columns: auto 1fr; gap: 7px 12px; font-size: 12.5px; color: #9AA6B8; }
+  .key { font-family: 'IBM Plex Mono', monospace; color: #00E5FF; text-shadow: 0 0 8px rgba(0,229,255,0.6); }
+  .mute-btn {
+    background: rgba(12,16,26,0.92); border: 1px solid rgba(0,229,255,0.16); border-radius: 12px; padding: 11px 16px;
+    color: #9AA6B8; font-size: 13px; font-weight: 600; letter-spacing: 0.1em; cursor: pointer; text-align: left;
+    transition: border-color 0.2s, color 0.2s, box-shadow 0.2s;
+  }
+  .mute-btn:hover { border-color: rgba(0,229,255,0.7); color: #F4F4F4; box-shadow: 0 0 18px rgba(0,229,255,0.25); }
+
+  .board-wrap {
+    position: relative; background: rgba(12,16,26,0.92); border: 1px solid rgba(0,229,255,0.22); border-radius: 12px; padding: 12px;
+    box-shadow: 0 0 45px rgba(0,229,255,0.10), 0 0 120px rgba(0,229,255,0.05), inset 0 0 30px rgba(0,229,255,0.03);
+  }
+  #board { display: block; width: 320px; height: 640px; border-radius: 6px; }
+
+  .overlay { position: absolute; inset: 12px; border-radius: 6px; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 10px; animation: ovfade 0.2s ease-out; }
+  .overlay.show { display: flex; }
+  #pauseOverlay { background: rgba(7,8,13,0.85); backdrop-filter: blur(3px); }
+  #pauseOverlay .title { font-size: 30px; font-weight: 700; letter-spacing: 0.22em; color: #00E5FF; text-shadow: 0 0 22px rgba(0,229,255,0.8), 0 0 60px rgba(0,229,255,0.4); animation: ovpop 0.25s ease-out; }
+  #pauseOverlay .hint { font-size: 13px; color: #8B94A3; }
+  #overOverlay { background: rgba(7,8,13,0.9); backdrop-filter: blur(3px); animation: ovfade 0.5s ease-out; }
+  #overOverlay .title { font-size: 30px; font-weight: 700; letter-spacing: 0.16em; color: #FF4D6D; text-shadow: 0 0 24px rgba(255,77,109,0.8), 0 0 70px rgba(255,77,109,0.35); animation: ovpop 0.35s ease-out; }
+  #overOverlay .final-score { font-family: 'IBM Plex Mono', monospace; font-size: 18px; color: #F4F4F4; text-shadow: 0 0 12px rgba(255,255,255,0.4); }
+  #overOverlay .best-tag { display: none; font-size: 12px; font-weight: 600; letter-spacing: 0.18em; color: #00E5FF; text-shadow: 0 0 14px rgba(0,229,255,0.8); animation: neonbreathe 1.6s ease-in-out infinite; }
+  #overOverlay .best-tag.show { display: block; }
+  .play-again {
+    margin-top: 6px; background: #00E5FF; border: none; border-radius: 8px; padding: 10px 22px; color: #07080D;
+    font-size: 14px; font-weight: 700; letter-spacing: 0.1em; cursor: pointer;
+    box-shadow: 0 0 24px rgba(0,229,255,0.55); transition: box-shadow 0.2s, transform 0.15s;
+  }
+  .play-again:hover { box-shadow: 0 0 40px rgba(0,229,255,0.85); transform: translateY(-1px); }
+
+  .stat-value { font-family: 'IBM Plex Mono', monospace; font-size: 24px; font-weight: 600; line-height: 1; text-shadow: 0 0 14px rgba(255,255,255,0.25); }
+  .stat-row { display: flex; gap: 18px; margin-top: 14px; }
+  .stat-sub { font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 600; line-height: 1; display: inline-block; transform-origin: left center; }
+  .best-value { font-family: 'IBM Plex Mono', monospace; font-size: 15px; color: #9AA6B8; line-height: 1; }
+
+  #hold, #next { display: block; }
+  #hold { width: 140px; height: 70px; }
+  #next { width: 140px; height: 330px; }
+
+  .touch-row { width: 100%; display: none; justify-content: center; gap: 10px; flex-wrap: wrap; }
+  .touch-row.show { display: flex; }
+  .touch-btn {
+    background: rgba(12,16,26,0.92); border: 1px solid rgba(0,229,255,0.2); border-radius: 12px;
+    min-width: 56px; min-height: 52px; color: #F4F4F4; font-size: 20px; cursor: pointer;
+  }
+  .touch-btn.rotate { color: #00E5FF; }
+  .touch-btn.hold { font-size: 13px; font-weight: 600; }
+  .touch-btn.drop {
+    background: #00E5FF; border: none; min-width: 72px; color: #07080D; font-size: 13px; font-weight: 700;
+    box-shadow: 0 0 20px rgba(0,229,255,0.5);
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="layout">
+
+    <div class="col">
+      <div class="panel">
+        <div class="label">HOLD</div>
+        <canvas id="hold" width="140" height="70"></canvas>
+      </div>
+      <div class="panel">
+        <div class="label">CONTROLS</div>
+        <div class="controls-grid">
+          <span class="key">&larr; &rarr;</span><span>Move</span>
+          <span class="key">&darr;</span><span>Soft drop</span>
+          <span class="key">Space</span><span>Hard drop</span>
+          <span class="key">Z / X</span><span>Rotate</span>
+          <span class="key">C</span><span>Hold</span>
+          <span class="key">P</span><span>Pause</span>
+          <span class="key">R</span><span>Restart</span>
+        </div>
+      </div>
+      <button class="mute-btn" id="muteBtn">SOUND: ON (M)</button>
+    </div>
+
+    <div class="board-wrap">
+      <canvas id="board" width="320" height="640"></canvas>
+      <div class="overlay" id="pauseOverlay">
+        <div class="title">PAUSED</div>
+        <div class="hint">Press <span class="key">P</span> to resume</div>
+      </div>
+      <div class="overlay" id="overOverlay">
+        <div class="title">GAME OVER</div>
+        <div class="final-score" id="finalScore">0</div>
+        <div class="best-tag" id="bestTag">NEW HIGH SCORE</div>
+        <button class="play-again" id="playAgainBtn">PLAY AGAIN</button>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="panel">
+        <div class="label">SCORE</div>
+        <div class="stat-value" id="scoreVal">0</div>
+        <div class="stat-row">
+          <div>
+            <div class="label" style="margin-bottom:4px">LEVEL</div>
+            <div class="stat-sub" id="levelVal">1</div>
+          </div>
+          <div>
+            <div class="label" style="margin-bottom:4px">LINES</div>
+            <div class="stat-sub" id="linesVal">0</div>
+          </div>
+        </div>
+        <div style="margin-top:14px">
+          <div class="label" style="margin-bottom:4px">BEST</div>
+          <div class="best-value" id="bestVal">0</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="label">NEXT</div>
+        <canvas id="next" width="140" height="330"></canvas>
+      </div>
+    </div>
+
+    <div class="touch-row" id="touchRow">
+      <button class="touch-btn" id="tLeft">&larr;</button>
+      <button class="touch-btn" id="tRight">&rarr;</button>
+      <button class="touch-btn" id="tDown">&darr;</button>
+      <button class="touch-btn rotate" id="tRotate">&#9083;</button>
+      <button class="touch-btn hold" id="tHold">HOLD</button>
+      <button class="touch-btn drop" id="tDrop">DROP</button>
+    </div>
+  </div>
+</div>
+
+<script src="tetris.js"></script>
+</body>
+</html>
