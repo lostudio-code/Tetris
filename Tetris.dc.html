@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;padding:0;background:#0F1115;color:#F4F4F4;font-family:'Space Grotesk',sans-serif}
+a{color:#4FC3F7;text-decoration:none}a:hover{color:#81D4FA}
+@keyframes lvlpulse{0%{transform:scale(1);color:#F4F4F4}30%{transform:scale(1.4);color:#4FC3F7}100%{transform:scale(1);color:#F4F4F4}}
+@keyframes ovfade{from{opacity:0}to{opacity:1}}
+@keyframes ovpop{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</helmet>
+<div data-screen-label="Tetris" style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;background:radial-gradient(1200px 800px at 50% 30%, #141823 0%, #0F1115 60%)">
+  <div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;justify-content:center">
+
+    <!-- LEFT COLUMN -->
+    <div style="display:flex;flex-direction:column;gap:18px;width:172px">
+      <div style="background:#161A22;border:1px solid #242B36;border-radius:12px;padding:16px">
+        <div style="font-size:12px;font-weight:600;letter-spacing:0.14em;color:#8B94A3;margin-bottom:10px">HOLD</div>
+        <canvas ref="{{ holdRef }}" width="140" height="70" style="display:block;width:140px;height:70px"></canvas>
+      </div>
+      <div style="background:#161A22;border:1px solid #242B36;border-radius:12px;padding:16px">
+        <div style="font-size:12px;font-weight:600;letter-spacing:0.14em;color:#8B94A3;margin-bottom:12px">CONTROLS</div>
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:7px 12px;font-size:12.5px;color:#B9C0CC">
+          <span style="font-family:'IBM Plex Mono',monospace;color:#4FC3F7">← →</span><span>Move</span>
+          <span style="font-family:'IBM Plex Mono',monospace;color:#4FC3F7">↓</span><span>Soft drop</span>
+          <span style="font-family:'IBM Plex Mono',monospace;color:#4FC3F7">Space</span><span>Hard drop</span>
+          <span style="font-family:'IBM Plex Mono',monospace;color:#4FC3F7">Z / X</span><span>Rotate</span>
+          <span style="font-family:'IBM Plex Mono',monospace;color:#4FC3F7">C</span><span>Hold</span>
+          <span style="font-family:'IBM Plex Mono',monospace;color:#4FC3F7">P</span><span>Pause</span>
+          <span style="font-family:'IBM Plex Mono',monospace;color:#4FC3F7">R</span><span>Restart</span>
+        </div>
+      </div>
+      <button onClick="{{ toggleMute }}" style="background:#161A22;border:1px solid #242B36;border-radius:12px;padding:11px 16px;color:#B9C0CC;font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;letter-spacing:0.1em;cursor:pointer;text-align:left" style-hover="border-color:#4FC3F7;color:#F4F4F4">{{ muteLabel }}</button>
+    </div>
+
+    <!-- BOARD -->
+    <div style="position:relative;background:#161A22;border:1px solid #242B36;border-radius:12px;padding:12px">
+      <canvas ref="{{ boardRef }}" width="320" height="640" style="display:block;width:320px;height:640px;border-radius:6px"></canvas>
+      <sc-if value="{{ paused }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;inset:12px;border-radius:6px;background:rgba(15,17,21,0.82);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;animation:ovfade 0.2s ease-out">
+          <div style="font-size:30px;font-weight:700;letter-spacing:0.18em;animation:ovpop 0.25s ease-out">PAUSED</div>
+          <div style="font-size:13px;color:#8B94A3">Press <span style="font-family:'IBM Plex Mono',monospace;color:#4FC3F7">P</span> to resume</div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ gameOver }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;inset:12px;border-radius:6px;background:rgba(15,17,21,0.88);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;animation:ovfade 0.5s ease-out">
+          <div style="font-size:30px;font-weight:700;letter-spacing:0.14em;color:#E57373;animation:ovpop 0.35s ease-out">GAME OVER</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:16px;color:#F4F4F4">{{ score }}</div>
+          <sc-if value="{{ newBest }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:12px;font-weight:600;letter-spacing:0.14em;color:#4FC3F7">NEW HIGH SCORE</div>
+          </sc-if>
+          <button onClick="{{ restart }}" style="margin-top:6px;background:#4FC3F7;border:none;border-radius:8px;padding:10px 22px;color:#0F1115;font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:700;letter-spacing:0.1em;cursor:pointer" style-hover="background:#81D4FA">PLAY AGAIN</button>
+        </div>
+      </sc-if>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div style="display:flex;flex-direction:column;gap:18px;width:172px">
+      <div style="background:#161A22;border:1px solid #242B36;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:14px">
+        <div>
+          <div style="font-size:12px;font-weight:600;letter-spacing:0.14em;color:#8B94A3;margin-bottom:4px">SCORE</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:600;line-height:1">{{ score }}</div>
+        </div>
+        <div style="display:flex;gap:18px">
+          <div>
+            <div style="font-size:12px;font-weight:600;letter-spacing:0.14em;color:#8B94A3;margin-bottom:4px">LEVEL</div>
+            <div ref="{{ levelRef }}" style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;line-height:1;display:inline-block;transform-origin:left center">{{ level }}</div>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:600;letter-spacing:0.14em;color:#8B94A3;margin-bottom:4px">LINES</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;line-height:1">{{ lines }}</div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:12px;font-weight:600;letter-spacing:0.14em;color:#8B94A3;margin-bottom:4px">BEST</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:15px;color:#B9C0CC;line-height:1">{{ best }}</div>
+        </div>
+      </div>
+      <div style="background:#161A22;border:1px solid #242B36;border-radius:12px;padding:16px">
+        <div style="font-size:12px;font-weight:600;letter-spacing:0.14em;color:#8B94A3;margin-bottom:10px">NEXT</div>
+        <canvas ref="{{ nextRef }}" width="140" height="330" style="display:block;width:140px;height:330px"></canvas>
+      </div>
+    </div>
+
+    <!-- TOUCH CONTROLS -->
+    <sc-if value="{{ showTouch }}" hint-placeholder-val="{{ false }}">
+      <div style="width:100%;display:flex;justify-content:center;gap:10px;flex-wrap:wrap">
+        <button onClick="{{ tLeft }}" style="background:#161A22;border:1px solid #242B36;border-radius:12px;min-width:56px;min-height:52px;color:#F4F4F4;font-size:20px;cursor:pointer">←</button>
+        <button onClick="{{ tRight }}" style="background:#161A22;border:1px solid #242B36;border-radius:12px;min-width:56px;min-height:52px;color:#F4F4F4;font-size:20px;cursor:pointer">→</button>
+        <button onClick="{{ tDown }}" style="background:#161A22;border:1px solid #242B36;border-radius:12px;min-width:56px;min-height:52px;color:#F4F4F4;font-size:20px;cursor:pointer">↓</button>
+        <button onClick="{{ tRotate }}" style="background:#161A22;border:1px solid #242B36;border-radius:12px;min-width:56px;min-height:52px;color:#4FC3F7;font-size:20px;cursor:pointer">⟳</button>
+        <button onClick="{{ tHold }}" style="background:#161A22;border:1px solid #242B36;border-radius:12px;min-width:56px;min-height:52px;color:#F4F4F4;font-size:13px;font-weight:600;cursor:pointer">HOLD</button>
+        <button onClick="{{ tDrop }}" style="background:#4FC3F7;border:none;border-radius:12px;min-width:72px;min-height:52px;color:#0F1115;font-size:13px;font-weight:700;cursor:pointer">DROP</button>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;showGhost&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Gameplay&quot;},
+  &quot;colorblind&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: false, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Accessibility&quot;},
+  &quot;startLevel&quot;: {&quot;editor&quot;: &quot;int&quot;, &quot;default&quot;: 1, &quot;min&quot;: 1, &quot;max&quot;: 15, &quot;tsType&quot;: &quot;number&quot;, &quot;section&quot;: &quot;Gameplay&quot;}
+}">
+class Component extends DCLogic {
+  state = { score: 0, level: 1, lines: 0, best: 0, paused: false, gameOver: false, newBest: false, muted: false, showTouch: false };
+
+  // ---------- constants ----------
+  get COLS() { return 10; }
+  get ROWS() { return 22; }      // 2 hidden
+  get HIDDEN() { return 2; }
+  get CELL() { return 32; }
+
+  get SHAPES() {
+    return {
+      I: [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
+      O: [[1,1],[1,1]],
+      T: [[0,1,0],[1,1,1],[0,0,0]],
+      S: [[0,1,1],[1,1,0],[0,0,0]],
+      Z: [[1,1,0],[0,1,1],[0,0,0]],
+      J: [[1,0,0],[1,1,1],[0,0,0]],
+      L: [[0,0,1],[1,1,1],[0,0,0]]
+    };
+  }
+  get COLORS() {
+    if (this.props.colorblind) {
+      return { I:'#56B4E9', O:'#F0E442', T:'#CC79A7', S:'#009E73', Z:'#D55E00', J:'#0072B2', L:'#E69F00' };
+    }
+    return { I:'#4FC3F7', O:'#FFD54F', T:'#BA68C8', S:'#81C784', Z:'#E57373', J:'#7986CB', L:'#FFB74D' };
+  }
+  get KICKS() {
+    return {
+      '0>1': [[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],
+      '1>0': [[0,0],[1,0],[1,1],[0,-2],[1,-2]],
+      '1>2': [[0,0],[1,0],[1,1],[0,-2],[1,-2]],
+      '2>1': [[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],
+      '2>3': [[0,0],[1,0],[1,-1],[0,2],[1,2]],
+      '3>2': [[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]],
+      '3>0': [[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]],
+      '0>3': [[0,0],[1,0],[1,-1],[0,2],[1,2]]
+    };
+  }
+  get I_KICKS() {
+    return {
+      '0>1': [[0,0],[-2,0],[1,0],[-2,1],[1,-2]],
+      '1>0': [[0,0],[2,0],[-1,0],[2,-1],[-1,2]],
+      '1>2': [[0,0],[-1,0],[2,0],[-1,-2],[2,1]],
+      '2>1': [[0,0],[1,0],[-2,0],[1,2],[-2,-1]],
+      '2>3': [[0,0],[2,0],[-1,0],[2,-1],[-1,2]],
+      '3>2': [[0,0],[-2,0],[1,0],[-2,1],[1,-2]],
+      '3>0': [[0,0],[1,0],[-2,0],[1,2],[-2,-1]],
+      '0>3': [[0,0],[-1,0],[2,0],[-1,-2],[2,1]]
+    };
+  }
+
+  // ---------- lifecycle ----------
+  componentDidMount() {
+    this.audioCtx = null;
+    this.keys = {};
+    this.dasDir = 0; this.dasTime = 0; this.arrTime = 0;
+    this.trail = null;
+    this.clearing = null;
+    this.lockTimer = -1; this.lockResets = 0;
+    this.gravAcc = 0;
+    this.softHeld = false;
+    this.last = performance.now();
+    let best = 0, muted = false;
+    try {
+      best = parseInt(localStorage.getItem('tetris-best') || '0', 10) || 0;
+      muted = localStorage.getItem('tetris-muted') === '1';
+    } catch (e) {}
+    this.setState({ best, muted, showTouch: window.matchMedia('(pointer: coarse)').matches });
+    this.newGame();
+    this.onKeyDown = (e) => this.keyDown(e);
+    this.onKeyUp = (e) => { this.keys[e.code] = false; if (e.code === 'ArrowDown') this.softHeld = false; if (e.code === 'ArrowLeft' && this.dasDir === -1) this.dasDir = 0; if (e.code === 'ArrowRight' && this.dasDir === 1) this.dasDir = 0; };
+    this.onBlur = () => { if (!this.state.gameOver && !this.state.paused && this.started) this.setState({ paused: true }); };
+    window.addEventListener('keydown', this.onKeyDown);
+    window.addEventListener('keyup', this.onKeyUp);
+    window.addEventListener('blur', this.onBlur);
+    this.raf = requestAnimationFrame((t) => this.loop(t));
+  }
+  componentWillUnmount() {
+    cancelAnimationFrame(this.raf);
+    window.removeEventListener('keydown', this.onKeyDown);
+    window.removeEventListener('keyup', this.onKeyUp);
+    window.removeEventListener('blur', this.onBlur);
+  }
+
+  // ---------- game setup ----------
+  newGame() {
+    this.grid = Array.from({ length: this.ROWS }, () => Array(this.COLS).fill(null));
+    this.bag = [];
+    this.queue = [];
+    while (this.queue.length < 5) this.queue.push(this.drawBag());
+    this.hold = null; this.holdUsed = false;
+    this.trail = null; this.clearing = null;
+    this.gravAcc = 0; this.lockTimer = -1; this.lockResets = 0;
+    this.started = true;
+    const lvl = Math.max(1, Math.min(15, this.props.startLevel ?? 1));
+    this.setState({ score: 0, level: lvl, lines: 0, paused: false, gameOver: false, newBest: false });
+    this.spawn();
+  }
+  drawBag() {
+    if (this.bag.length === 0) {
+      this.bag = ['I','O','T','S','Z','J','L'];
+      for (let i = this.bag.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [this.bag[i], this.bag[j]] = [this.bag[j], this.bag[i]];
+      }
+    }
+    return this.bag.pop();
+  }
+  spawn(type) {
+    const t = type || this.queue.shift();
+    while (this.queue.length < 5) this.queue.push(this.drawBag());
+    const shape = this.SHAPES[t].map(r => r.slice());
+    const p = { type: t, shape, rot: 0, x: t === 'O' ? 4 : 3, y: 0 };
+    this.active = p;
+    this.holdUsed = type ? this.holdUsed : false;
+    this.lockTimer = -1; this.lockResets = 0; this.gravAcc = 0;
+    if (this.collides(p.shape, p.x, p.y)) {
+      p.y = -1;
+      if (this.collides(p.shape, p.x, p.y)) this.endGame();
+    }
+    this.forceUpdate();
+  }
+  endGame() {
+    this.started = false;
+    const nb = this.state.score > this.state.best;
+    if (nb) { try { localStorage.setItem('tetris-best', String(this.state.score)); } catch (e) {} }
+    this.setState({ gameOver: true, newBest: nb, best: Math.max(this.state.best, this.state.score) });
+    this.sfx('gameover');
+  }
+
+  // ---------- mechanics ----------
+  collides(shape, px, py) {
+    for (let y = 0; y < shape.length; y++) for (let x = 0; x < shape[y].length; x++) {
+      if (!shape[y][x]) continue;
+      const gx = px + x, gy = py + y;
+      if (gx < 0 || gx >= this.COLS || gy >= this.ROWS) return true;
+      if (gy >= 0 && this.grid[gy][gx]) return true;
+    }
+    return false;
+  }
+  tryMove(dx, dy) {
+    const p = this.active;
+    if (!p || this.clearing) return false;
+    if (!this.collides(p.shape, p.x + dx, p.y + dy)) {
+      p.x += dx; p.y += dy;
+      if (dx !== 0 && this.lockTimer >= 0 && this.lockResets < 15) { this.lockTimer = 0; this.lockResets++; }
+      return true;
+    }
+    return false;
+  }
+  rotate(dir) {
+    const p = this.active;
+    if (!p || p.type === 'O' || this.clearing) return;
+    const n = p.shape.length;
+    const rotated = Array.from({ length: n }, () => Array(n).fill(0));
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+      if (dir === 1) rotated[x][n - 1 - y] = p.shape[y][x];
+      else rotated[n - 1 - x][y] = p.shape[y][x];
+    }
+    const from = p.rot, to = (p.rot + dir + 4) % 4;
+    const table = p.type === 'I' ? this.I_KICKS : this.KICKS;
+    const kicks = table[from + '>' + to] || [[0,0]];
+    for (const [kx, ky] of kicks) {
+      if (!this.collides(rotated, p.x + kx, p.y + ky)) {
+        p.shape = rotated; p.rot = to; p.x += kx; p.y += ky;
+        if (this.lockTimer >= 0 && this.lockResets < 15) { this.lockTimer = 0; this.lockResets++; }
+        this.sfx('rotate');
+        return;
+      }
+    }
+  }
+  ghostY() {
+    const p = this.active;
+    if (!p) return 0;
+    let y = p.y;
+    while (!this.collides(p.shape, p.x, y + 1)) y++;
+    return y;
+  }
+  hardDrop() {
+    const p = this.active;
+    if (!p || this.clearing) return;
+    const gy = this.ghostY();
+    const dist = gy - p.y;
+    if (dist > 0) {
+      this.trail = { x: p.x, fromY: p.y, toY: gy, shape: p.shape.map(r => r.slice()), color: this.COLORS[p.type], t: 0 };
+    }
+    p.y = gy;
+    this.addScore(dist * 2);
+    this.sfx('harddrop');
+    this.lockPiece();
+  }
+  doHold() {
+    if (this.holdUsed || this.clearing || !this.active) return;
+    const cur = this.active.type;
+    const prev = this.hold;
+    this.hold = cur;
+    this.holdUsed = true;
+    if (prev) this.spawn(prev); else this.spawn();
+    this.sfx('move');
+  }
+  lockPiece() {
+    const p = this.active;
+    for (let y = 0; y < p.shape.length; y++) for (let x = 0; x < p.shape[y].length; x++) {
+      if (p.shape[y][x]) {
+        const gy = p.y + y, gx = p.x + x;
+        if (gy >= 0) this.grid[gy][gx] = p.type;
+      }
+    }
+    this.active = null;
+    // top-out: locked entirely above visible field
+    let anyVisible = false;
+    for (let y = 0; y < p.shape.length; y++) for (let x = 0; x < p.shape[y].length; x++) {
+      if (p.shape[y][x] && p.y + y >= this.HIDDEN) anyVisible = true;
+    }
+    if (!anyVisible) { this.endGame(); return; }
+    const rows = [];
+    for (let y = 0; y < this.ROWS; y++) if (this.grid[y].every(c => c)) rows.push(y);
+    if (rows.length) {
+      this.clearing = { rows, t: 0 };
+      this.sfx('clear', rows.length);
+    } else {
+      this.sfx('lock');
+      this.spawn();
+    }
+  }
+  finishClear() {
+    const rows = this.clearing.rows;
+    this.clearing = null;
+    for (const r of rows) {
+      this.grid.splice(r, 1);
+      this.grid.unshift(Array(this.COLS).fill(null));
+    }
+    const pts = [0, 100, 300, 500, 800][rows.length] * this.state.level;
+    const newLines = this.state.lines + rows.length;
+    const startLvl = Math.max(1, Math.min(15, this.props.startLevel ?? 1));
+    const newLevel = Math.max(startLvl, Math.floor(newLines / 10) + 1);
+    const leveled = newLevel > this.state.level;
+    this.setState({ lines: newLines, level: newLevel });
+    this.addScore(pts);
+    if (leveled) {
+      this.sfx('levelup');
+      const el = this.levelEl;
+      if (el) { el.style.animation = 'none'; void el.offsetWidth; el.style.animation = 'lvlpulse 0.55s ease-out'; }
+    }
+    this.spawn();
+  }
+  addScore(n) {
+    if (n <= 0) return;
+    this.setState(s => ({ score: s.score + n }));
+  }
+  gravityMs() {
+    const l = this.state.level;
+    return Math.max(16, Math.pow(0.8 - (l - 1) * 0.007, l - 1) * 1000);
+  }
+
+  // ---------- input ----------
+  keyDown(e) {
+    const code = e.code;
+    if (['ArrowLeft','ArrowRight','ArrowDown','ArrowUp','Space'].includes(code)) e.preventDefault();
+    if (code === 'KeyR') { this.newGame(); return; }
+    if (code === 'KeyM') { this.toggleMuteFn(); return; }
+    if (code === 'KeyP') {
+      if (!this.state.gameOver) this.setState(s => ({ paused: !s.paused }));
+      return;
+    }
+    if (this.state.paused || this.state.gameOver || e.repeat) {
+      if (e.repeat) return;
+      if (this.state.paused || this.state.gameOver) return;
+    }
+    switch (code) {
+      case 'ArrowLeft':
+        if (this.tryMove(-1, 0)) this.sfx('move');
+        this.dasDir = -1; this.dasTime = 0; this.arrTime = 0;
+        break;
+      case 'ArrowRight':
+        if (this.tryMove(1, 0)) this.sfx('move');
+        this.dasDir = 1; this.dasTime = 0; this.arrTime = 0;
+        break;
+      case 'ArrowDown':
+        this.softHeld = true;
+        break;
+      case 'Space':
+        this.hardDrop();
+        break;
+      case 'KeyZ':
+        this.rotate(-1);
+        break;
+      case 'KeyX':
+      case 'ArrowUp':
+        this.rotate(1);
+        break;
+      case 'KeyC':
+        this.doHold();
+        break;
+    }
+  }
+
+  // ---------- main loop ----------
+  loop(t) {
+    this.raf = requestAnimationFrame((tt) => this.loop(tt));
+    const dt = Math.min(50, t - this.last);
+    this.last = t;
+    const playing = this.started && !this.state.paused && !this.state.gameOver;
+
+    if (playing && this.clearing) {
+      this.clearing.t += dt;
+      if (this.clearing.t >= 300) this.finishClear();
+    } else if (playing && this.active) {
+      // DAS
+      if (this.dasDir !== 0) {
+        this.dasTime += dt;
+        if (this.dasTime > 150) {
+          this.arrTime += dt;
+          while (this.arrTime > 40) {
+            this.arrTime -= 40;
+            if (this.tryMove(this.dasDir, 0)) this.sfx('move');
+          }
+        }
+      }
+      // gravity
+      const base = this.gravityMs();
+      const interval = this.softHeld ? Math.min(40, base / 20) : base;
+      this.gravAcc += dt;
+      while (this.gravAcc >= interval) {
+        this.gravAcc -= interval;
+        if (!this.collides(this.active.shape, this.active.x, this.active.y + 1)) {
+          this.active.y++;
+          if (this.softHeld) this.addScore(1);
+          this.lockTimer = -1; this.lockResets = this.lockResets; 
+        } else {
+          if (this.lockTimer < 0) this.lockTimer = 0;
+        }
+      }
+      // lock delay
+      if (this.active && this.collides(this.active.shape, this.active.x, this.active.y + 1)) {
+        if (this.lockTimer < 0) this.lockTimer = 0;
+        this.lockTimer += dt;
+        if (this.lockTimer >= 500) this.lockPiece();
+      } else if (this.lockTimer >= 0 && this.active) {
+        this.lockTimer = -1;
+      }
+    }
+    if (this.trail) {
+      this.trail.t += dt;
+      if (this.trail.t > 180) this.trail = null;
+    }
+    this.draw();
+  }
+
+  // ---------- rendering ----------
+  draw() {
+    const cv = this.boardEl;
+    if (!cv) return;
+    const ctx = cv.getContext('2d');
+    const C = this.CELL, H = this.HIDDEN;
+    ctx.clearRect(0, 0, 320, 640);
+    ctx.fillStyle = '#10141B';
+    ctx.fillRect(0, 0, 320, 640);
+    // grid
+    ctx.strokeStyle = '#242B36';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = 1; x < this.COLS; x++) { ctx.moveTo(x * C + 0.5, 0); ctx.lineTo(x * C + 0.5, 640); }
+    for (let y = 1; y < 20; y++) { ctx.moveTo(0, y * C + 0.5); ctx.lineTo(320, y * C + 0.5); }
+    ctx.stroke();
+    // trail
+    if (this.trail) {
+      const tr = this.trail;
+      const a = 0.35 * (1 - tr.t / 180);
+      ctx.fillStyle = tr.color;
+      ctx.globalAlpha = a;
+      for (let x = 0; x < tr.shape[0].length; x++) {
+        let has = false;
+        for (let y = 0; y < tr.shape.length; y++) if (tr.shape[y][x]) has = true;
+        if (!has) continue;
+        const gx = (tr.x + x) * C;
+        const y0 = Math.max(0, (tr.fromY - H)) * C;
+        const y1 = (tr.toY - H + tr.shape.length) * C;
+        ctx.fillRect(gx + 4, y0, C - 8, Math.max(0, y1 - y0));
+      }
+      ctx.globalAlpha = 1;
+    }
+    // locked cells
+    const colors = this.COLORS;
+    const clearingRows = this.clearing ? this.clearing.rows : [];
+    for (let y = H; y < this.ROWS; y++) {
+      for (let x = 0; x < this.COLS; x++) {
+        const c = this.grid[y][x];
+        if (!c) continue;
+        if (clearingRows.includes(y)) continue;
+        this.cell(ctx, x * C, (y - H) * C, colors[c]);
+      }
+    }
+    // clearing rows: flash + shrink
+    if (this.clearing) {
+      const k = this.clearing.t / 300;
+      for (const r of clearingRows) {
+        const py = (r - H) * C;
+        if (k < 0.4) {
+          ctx.fillStyle = 'rgba(255,255,255,' + (0.9 - k) + ')';
+          ctx.fillRect(0, py, 320, C);
+        } else {
+          const s = 1 - (k - 0.4) / 0.6;
+          ctx.fillStyle = 'rgba(255,255,255,' + (0.7 * s) + ')';
+          const h = C * s;
+          ctx.fillRect(0, py + (C - h) / 2, 320, h);
+        }
+      }
+    }
+    // ghost + active
+    const p = this.active;
+    if (p && !this.clearing) {
+      const showGhost = this.props.showGhost ?? true;
+      if (showGhost) {
+        const gy = this.ghostY();
+        for (let y = 0; y < p.shape.length; y++) for (let x = 0; x < p.shape[y].length; x++) {
+          if (!p.shape[y][x]) continue;
+          const vy = gy + y - H;
+          if (vy < 0) continue;
+          ctx.strokeStyle = colors[p.type];
+          ctx.globalAlpha = 0.35;
+          ctx.lineWidth = 2;
+          this.roundRectPath(ctx, (p.x + x) * C + 3, vy * C + 3, C - 6, C - 6, 6);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
+      }
+      for (let y = 0; y < p.shape.length; y++) for (let x = 0; x < p.shape[y].length; x++) {
+        if (!p.shape[y][x]) continue;
+        const vy = p.y + y - H;
+        if (vy < -1) continue;
+        this.cell(ctx, (p.x + x) * C, vy * C, colors[p.type]);
+      }
+    }
+    this.drawHold();
+    this.drawNext();
+  }
+  roundRectPath(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+  cell(ctx, px, py, color, size) {
+    const C = size || this.CELL;
+    const inset = Math.max(1, Math.round(C * 0.045));
+    this.roundRectPath(ctx, px + inset, py + inset, C - inset * 2, C - inset * 2, Math.round(C * 0.19));
+    ctx.fillStyle = color;
+    ctx.fill();
+    // top highlight
+    const g = ctx.createLinearGradient(0, py, 0, py + C);
+    g.addColorStop(0, 'rgba(255,255,255,0.28)');
+    g.addColorStop(0.45, 'rgba(255,255,255,0)');
+    g.addColorStop(1, 'rgba(0,0,0,0.18)');
+    ctx.fillStyle = g;
+    this.roundRectPath(ctx, px + inset, py + inset, C - inset * 2, C - inset * 2, Math.round(C * 0.19));
+    ctx.fill();
+  }
+  drawMini(ctx, type, cx, cy, cellSize) {
+    if (!type) return;
+    const shape = this.SHAPES[type];
+    let minX = 9, maxX = -1, minY = 9, maxY = -1;
+    for (let y = 0; y < shape.length; y++) for (let x = 0; x < shape[y].length; x++) {
+      if (shape[y][x]) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y); }
+    }
+    const w = (maxX - minX + 1) * cellSize, h = (maxY - minY + 1) * cellSize;
+    const ox = cx - w / 2, oy = cy - h / 2;
+    for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) {
+      if (shape[y][x]) this.cell(ctx, ox + (x - minX) * cellSize, oy + (y - minY) * cellSize, this.COLORS[type], cellSize);
+    }
+  }
+  drawHold() {
+    const cv = this.holdEl;
+    if (!cv) return;
+    const ctx = cv.getContext('2d');
+    ctx.clearRect(0, 0, 140, 70);
+    if (this.hold) {
+      if (this.holdUsed) ctx.globalAlpha = 0.4;
+      this.drawMini(ctx, this.hold, 70, 35, 16);
+      ctx.globalAlpha = 1;
+    } else {
+      ctx.fillStyle = '#3A4250';
+      ctx.font = '12px "IBM Plex Mono", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('EMPTY', 70, 39);
+    }
+  }
+  drawNext() {
+    const cv = this.nextEl;
+    if (!cv) return;
+    const ctx = cv.getContext('2d');
+    ctx.clearRect(0, 0, 140, 330);
+    for (let i = 0; i < Math.min(5, this.queue.length); i++) {
+      ctx.globalAlpha = i === 0 ? 1 : 0.75;
+      this.drawMini(ctx, this.queue[i], 70, 34 + i * 66, i === 0 ? 17 : 14);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // ---------- audio ----------
+  ac() {
+    if (!this.audioCtx) {
+      try { this.audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
+    }
+    if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
+    return this.audioCtx;
+  }
+  beep(freq, dur, type, vol, when, slide) {
+    const ctx = this.ac();
+    if (!ctx || this.state.muted) return;
+    const t0 = ctx.currentTime + (when || 0);
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = type || 'square';
+    o.frequency.setValueAtTime(freq, t0);
+    if (slide) o.frequency.exponentialRampToValueAtTime(slide, t0 + dur);
+    g.gain.setValueAtTime(vol || 0.08, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(t0); o.stop(t0 + dur + 0.02);
+  }
+  sfx(name, n) {
+    switch (name) {
+      case 'move': this.beep(220, 0.04, 'square', 0.04); break;
+      case 'rotate': this.beep(330, 0.05, 'square', 0.05); break;
+      case 'lock': this.beep(140, 0.08, 'triangle', 0.1); break;
+      case 'harddrop': this.beep(420, 0.09, 'sawtooth', 0.07, 0, 110); break;
+      case 'clear': {
+        const notes = [392, 494, 587, 784];
+        for (let i = 0; i < Math.min(n || 1, 4); i++) this.beep(notes[i], 0.12, 'square', 0.07, i * 0.06);
+        if ((n || 1) >= 4) this.beep(1046, 0.25, 'square', 0.08, 0.26);
+        break;
+      }
+      case 'levelup':
+        this.beep(523, 0.1, 'square', 0.07);
+        this.beep(659, 0.1, 'square', 0.07, 0.09);
+        this.beep(784, 0.18, 'square', 0.08, 0.18);
+        break;
+      case 'gameover':
+        this.beep(392, 0.18, 'triangle', 0.1);
+        this.beep(311, 0.18, 'triangle', 0.1, 0.16);
+        this.beep(233, 0.34, 'triangle', 0.1, 0.32);
+        break;
+    }
+  }
+  toggleMuteFn() {
+    this.setState(s => {
+      try { localStorage.setItem('tetris-muted', s.muted ? '0' : '1'); } catch (e) {}
+      return { muted: !s.muted };
+    });
+  }
+
+  // ---------- template values ----------
+  renderVals() {
+    const guard = (fn) => () => { if (!this.state.paused && !this.state.gameOver) fn(); };
+    return {
+      score: this.state.score,
+      level: this.state.level,
+      lines: this.state.lines,
+      best: Math.max(this.state.best, this.state.score),
+      paused: this.state.paused,
+      gameOver: this.state.gameOver,
+      newBest: this.state.newBest,
+      showTouch: this.state.showTouch,
+      muteLabel: this.state.muted ? 'SOUND: OFF (M)' : 'SOUND: ON (M)',
+      toggleMute: () => this.toggleMuteFn(),
+      restart: () => this.newGame(),
+      boardRef: (el) => { this.boardEl = el; },
+      holdRef: (el) => { this.holdEl = el; },
+      nextRef: (el) => { this.nextEl = el; },
+      levelRef: (el) => { this.levelEl = el; },
+      tLeft: guard(() => { if (this.tryMove(-1, 0)) this.sfx('move'); }),
+      tRight: guard(() => { if (this.tryMove(1, 0)) this.sfx('move'); }),
+      tDown: guard(() => { if (this.tryMove(0, 1)) this.addScore(1); }),
+      tRotate: guard(() => this.rotate(1)),
+      tHold: guard(() => this.doHold()),
+      tDrop: guard(() => this.hardDrop())
+    };
+  }
+}
+</script>
+</body>
+</html>
