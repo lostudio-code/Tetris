@@ -1,756 +1,262 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<script src="./support.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tetris — by Lo Studio</title>
+<meta name="description" content="A retro 8-bit browser Tetris game. Keyboard and touch.">
+<meta name="theme-color" content="#3B0FA8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta property="og:title" content="Tetris — by Lo Studio">
+<meta property="og:description" content="A retro 8-bit browser Tetris game.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%233B0FA8'/%3E%3Crect x='2' y='3' width='5' height='5' fill='%232ED9FF'/%3E%3Crect x='7' y='3' width='5' height='5' fill='%23FFE14D'/%3E%3Crect x='2' y='8' width='5' height='5' fill='%23FF4D6D'/%3E%3Crect x='7' y='8' width='5' height='5' fill='%234DFF88'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; padding: 0; background: #1B0E4E; color: #F4F4F4; font-family: 'Press Start 2P', monospace; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { overscroll-behavior: none; }
+  button, canvas { touch-action: manipulation; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  canvas { image-rendering: pixelated; }
+  a { color: #00E5FF; text-decoration: none; }
+  a:hover { color: #7DF3FF; }
+  * { box-sizing: border-box; }
+  button { font-family: inherit; }
+
+  @keyframes lvlpulse { 0% { transform: scale(1); text-shadow: 0 0 0 rgba(0,229,255,0); } 30% { transform: scale(1.45); color: #00E5FF; text-shadow: 0 0 18px rgba(0,229,255,0.9); } 100% { transform: scale(1); text-shadow: 0 0 0 rgba(0,229,255,0); } }
+  @keyframes ovfade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes ovpop { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes neonbreathe { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+
+  .board-col { display: flex; flex-direction: column; gap: 10px; }
+  .byline {
+    text-align: right; font-size: 8px; letter-spacing: 0.16em; line-height: 1;
+    color: rgba(255,255,255,0.4); text-shadow: 2px 2px 0 rgba(0,0,0,0.55);
+  }
+  .byline b { color: inherit; font-weight: normal; }
+
+  .page {
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+    gap: 26px;
+    padding: max(20px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(28px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    background-color: #7B2FF7;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.07) 2px, transparent 2px),
+      linear-gradient(90deg, rgba(255,255,255,0.07) 2px, transparent 2px),
+      radial-gradient(700px 520px at 12% 8%, #2ED9FF 0%, rgba(0,0,0,0) 62%),
+      radial-gradient(760px 560px at 90% 88%, #FF3EA5 0%, rgba(0,0,0,0) 62%),
+      linear-gradient(160deg, #8A2BE2 0%, #6320E0 55%, #3B0FA8 100%);
+    background-size: 32px 32px, 32px 32px, auto, auto, auto;
+  }
+
+  .brand { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .brand-word { display: flex; gap: 8px; }
+  .brand-word span {
+    font-size: 38px; line-height: 1; color: #FFFFFF;
+    -webkit-text-stroke: 4px #12052E; paint-order: stroke fill;
+    text-shadow: 5px 5px 0 #12052E, 5px 0 0 #12052E, 0 5px 0 #12052E;
+  }
+  .brand-word span:nth-child(1) { color: #2ED9FF; }
+  .brand-word span:nth-child(2) { color: #FFE14D; }
+  .brand-word span:nth-child(3) { color: #4DFF88; }
+  .brand-word span:nth-child(4) { color: #FF4D6D; }
+  .brand-word span:nth-child(5) { color: #FF9E3D; }
+  .brand-word span:nth-child(6) { color: #FFFFFF; }
+  .brand-mark { display: grid; grid-template-columns: repeat(6, 12px); grid-template-rows: repeat(2, 12px); gap: 3px; }
+  .brand-mark i { background: currentColor; box-shadow: inset -3px -3px 0 rgba(0,0,0,0.35), inset 3px 3px 0 rgba(255,255,255,0.45); }
+  .brand-tag { font-size: 9px; letter-spacing: 0.18em; color: #E6DBFF; text-shadow: 2px 2px 0 #12052E; }
+
+  .layout { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; justify-content: center; }
+  .col { display: flex; flex-direction: column; gap: 18px; width: 172px; }
+  .panel {
+    background: #12052E; border: 4px solid #12052E; outline: 4px solid rgba(255,255,255,0.22); border-radius: 0; padding: 14px;
+    box-shadow: 6px 6px 0 rgba(0,0,0,0.35);
+  }
+  .label { font-size: 9px; letter-spacing: 0.12em; color: #2ED9FF; text-shadow: 2px 2px 0 #000; margin-bottom: 10px; }
+  .controls-grid { display: grid; grid-template-columns: auto 1fr; gap: 9px 10px; font-size: 8px; line-height: 1.4; color: #B9A9E8; }
+  .key { color: #FFE14D; }
+  .mute-btn {
+    background: #12052E; border: 4px solid rgba(255,255,255,0.22); border-radius: 0; padding: 12px 10px;
+    color: #B9A9E8; font-size: 8px; letter-spacing: 0.08em; cursor: pointer; text-align: center;
+    box-shadow: 6px 6px 0 rgba(0,0,0,0.35);
+  }
+  .mute-btn:hover { color: #FFE14D; border-color: #FFE14D; }
+  .mute-btn:active { transform: translate(3px, 3px); box-shadow: 3px 3px 0 rgba(0,0,0,0.35); }
+
+  .board-wrap {
+    position: relative; background: #12052E; border: 4px solid #12052E; outline: 4px solid rgba(255,255,255,0.3); border-radius: 0; padding: 10px;
+    box-shadow: 8px 8px 0 rgba(0,0,0,0.4);
+  }
+  .board-wrap { --cell: 32px; }
+  #board { display: block; width: calc(var(--cell) * 10); height: calc(var(--cell) * 20); border-radius: 0; }
+
+  .overlay { position: absolute; inset: 10px; border-radius: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 10px; animation: ovfade 0.2s ease-out; }
+  .overlay.show { display: flex; }
+  #pauseOverlay { background: rgba(18,5,46,0.9); }
+  #pauseOverlay .title { font-size: 22px; letter-spacing: 0.06em; color: #2ED9FF; text-shadow: 4px 4px 0 #000; animation: ovpop 0.25s ease-out; }
+  #pauseOverlay .hint { font-size: 8px; line-height: 1.6; color: #B9A9E8; }
+  #overOverlay { background: rgba(18,5,46,0.93); animation: ovfade 0.5s ease-out; }
+  #overOverlay .title { font-size: 18px; letter-spacing: 0.04em; color: #FF4D6D; text-shadow: 4px 4px 0 #000; animation: ovpop 0.35s ease-out; text-align: center; }
+  #overOverlay .final-score { font-size: 16px; color: #FFE14D; text-shadow: 3px 3px 0 #000; }
+  #overOverlay .best-tag { display: none; font-size: 8px; letter-spacing: 0.1em; color: #4DFF88; text-shadow: 2px 2px 0 #000; animation: neonbreathe 0.9s steps(1) infinite; }
+  #overOverlay .best-tag.show { display: block; }
+  .play-again {
+    margin-top: 10px; background: #FFE14D; border: none; border-radius: 0; padding: 12px 18px; color: #12052E;
+    font-family: inherit; font-size: 9px; letter-spacing: 0.08em; cursor: pointer;
+    box-shadow: 5px 5px 0 #12052E;
+  }
+  .play-again:hover { background: #FFF29A; }
+  .play-again:active { transform: translate(3px, 3px); box-shadow: 2px 2px 0 #12052E; }
+
+  .stat-value { font-size: 18px; line-height: 1; color: #FFFFFF; text-shadow: 3px 3px 0 #000; }
+  .stat-row { display: flex; gap: 18px; margin-top: 14px; }
+  .stat-sub { font-size: 14px; line-height: 1; display: inline-block; transform-origin: left center; text-shadow: 2px 2px 0 #000; }
+  .best-value { font-size: 11px; color: #B9A9E8; line-height: 1; text-shadow: 2px 2px 0 #000; }
+
+  #hold, #next { display: block; }
+  #hold { width: 140px; height: 70px; }
+  #next { width: 140px; height: 330px; }
+
+  .touch-row { width: 100%; display: none; justify-content: center; gap: 10px; flex-wrap: wrap; }
+  .touch-row.show { display: flex; }
+  .touch-btn {
+    background: #12052E; border: 4px solid rgba(255,255,255,0.22); border-radius: 0;
+    min-width: 56px; min-height: 52px; color: #F4F4F4; font-size: 16px; cursor: pointer;
+    box-shadow: 5px 5px 0 rgba(0,0,0,0.35);
+  }
+  .touch-btn:active { transform: translate(3px, 3px); box-shadow: 2px 2px 0 rgba(0,0,0,0.35); }
+  .touch-btn.rotate { color: #2ED9FF; }
+  .touch-btn.hold { font-size: 8px; }
+  .touch-btn.drop {
+    background: #FFE14D; border: 4px solid #FFE14D; min-width: 72px; color: #12052E; font-size: 8px;
+  }
+
+  /* ---------- tablets & phones ---------- */
+  @media (max-width: 900px) {
+    .page { gap: 16px; }
+    .brand-word { gap: 5px; }
+    .brand-word span { font-size: 28px; -webkit-text-stroke-width: 3px; text-shadow: 4px 4px 0 #12052E, 4px 0 0 #12052E, 0 4px 0 #12052E; }
+    .layout { flex-direction: column; align-items: center; gap: 12px; width: 100%; }
+    .board-wrap { --cell: max(22px, min(32px, (100vw - 72px) / 10, (100vh - 210px) / 20)); }
+    .board-col { order: 1; align-items: center; }
+    .touch-row { order: 2; }
+    .col { order: 3; flex-direction: row; flex-wrap: wrap; align-items: stretch; width: 100%; max-width: 420px; gap: 10px; }
+    .col.side-left { order: 4; }
+    .panel { flex: 1 1 130px; padding: 10px; }
+    #controlsPanel { display: none; }
+    #hold, #next { width: 100%; height: auto; }
+    #next { max-height: 150px; }
+    .mute-btn { flex: 1 1 130px; padding: 14px 8px; }
+    .byline { flex: 1 1 100%; text-align: center; }
+    .stat-row { gap: 14px; margin-top: 10px; }
+  }
+
+  /* ---------- short / landscape screens ---------- */
+  @media (max-height: 720px) and (min-width: 901px) {
+    .page { gap: 14px; padding-top: 14px; }
+    .brand-word span { font-size: 26px; }
+  }
+
+  @media (max-width: 380px) {
+    .brand-word span { font-size: 22px; -webkit-text-stroke-width: 3px; }
+    .touch-btn { min-width: 46px; min-height: 48px; }
+    .touch-btn.drop { min-width: 60px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+  }
+</style>
 </head>
 <body>
-<x-dc>
-<helmet>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-html,body{margin:0;padding:0;background:#07080D;color:#F4F4F4;font-family:'Space Grotesk',sans-serif}
-a{color:#00E5FF;text-decoration:none}a:hover{color:#7DF3FF}
-@keyframes lvlpulse{0%{transform:scale(1);text-shadow:0 0 0 rgba(0,229,255,0)}30%{transform:scale(1.45);color:#00E5FF;text-shadow:0 0 18px rgba(0,229,255,0.9)}100%{transform:scale(1);text-shadow:0 0 0 rgba(0,229,255,0)}}
-@keyframes ovfade{from{opacity:0}to{opacity:1}}
-@keyframes ovpop{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-@keyframes neonbreathe{0%,100%{opacity:0.55}50%{opacity:1}}
-</style>
-</helmet>
-<div data-screen-label="Tetris Neon" style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;background:radial-gradient(1000px 700px at 50% 20%, rgba(0,229,255,0.06) 0%, rgba(0,0,0,0) 55%), radial-gradient(800px 600px at 80% 90%, rgba(226,77,255,0.05) 0%, rgba(0,0,0,0) 60%), #07080D">
-  <div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;justify-content:center">
+<div class="page">
+  <div class="brand">
+    <div class="brand-word">
+      <span>T</span><span>E</span><span>T</span><span>R</span><span>I</span><span>S</span>
+    </div>
+  </div>
+  <div class="layout">
 
-    <!-- LEFT COLUMN -->
-    <div style="display:flex;flex-direction:column;gap:18px;width:172px">
-      <div style="background:rgba(12,16,26,0.92);border:1px solid rgba(0,229,255,0.16);border-radius:12px;padding:16px;box-shadow:0 0 28px rgba(0,229,255,0.05), inset 0 0 22px rgba(0,229,255,0.03)">
-        <div style="font-size:12px;font-weight:600;letter-spacing:0.18em;color:#5FD9EC;text-shadow:0 0 10px rgba(0,229,255,0.45);margin-bottom:10px">HOLD</div>
-        <canvas ref="{{ holdRef }}" width="140" height="70" style="display:block;width:140px;height:70px"></canvas>
+    <div class="col side-left">
+      <div class="panel">
+        <div class="label">HOLD</div>
+        <canvas id="hold" width="140" height="70"></canvas>
       </div>
-      <div style="background:rgba(12,16,26,0.92);border:1px solid rgba(0,229,255,0.16);border-radius:12px;padding:16px;box-shadow:0 0 28px rgba(0,229,255,0.05), inset 0 0 22px rgba(0,229,255,0.03)">
-        <div style="font-size:12px;font-weight:600;letter-spacing:0.18em;color:#5FD9EC;text-shadow:0 0 10px rgba(0,229,255,0.45);margin-bottom:12px">CONTROLS</div>
-        <div style="display:grid;grid-template-columns:auto 1fr;gap:7px 12px;font-size:12.5px;color:#9AA6B8">
-          <span style="font-family:'IBM Plex Mono',monospace;color:#00E5FF;text-shadow:0 0 8px rgba(0,229,255,0.6)">← →</span><span>Move</span>
-          <span style="font-family:'IBM Plex Mono',monospace;color:#00E5FF;text-shadow:0 0 8px rgba(0,229,255,0.6)">↓</span><span>Soft drop</span>
-          <span style="font-family:'IBM Plex Mono',monospace;color:#00E5FF;text-shadow:0 0 8px rgba(0,229,255,0.6)">Space</span><span>Hard drop</span>
-          <span style="font-family:'IBM Plex Mono',monospace;color:#00E5FF;text-shadow:0 0 8px rgba(0,229,255,0.6)">Z / X</span><span>Rotate</span>
-          <span style="font-family:'IBM Plex Mono',monospace;color:#00E5FF;text-shadow:0 0 8px rgba(0,229,255,0.6)">C</span><span>Hold</span>
-          <span style="font-family:'IBM Plex Mono',monospace;color:#00E5FF;text-shadow:0 0 8px rgba(0,229,255,0.6)">P</span><span>Pause</span>
-          <span style="font-family:'IBM Plex Mono',monospace;color:#00E5FF;text-shadow:0 0 8px rgba(0,229,255,0.6)">R</span><span>Restart</span>
+      <div class="panel" id="controlsPanel">
+        <div class="label">CONTROLS</div>
+        <div class="controls-grid">
+          <span class="key">&larr; &rarr;</span><span>Move</span>
+          <span class="key">&darr;</span><span>Soft drop</span>
+          <span class="key">Space</span><span>Hard drop</span>
+          <span class="key">Z / X</span><span>Rotate</span>
+          <span class="key">C</span><span>Hold</span>
+          <span class="key">P</span><span>Pause</span>
+          <span class="key">R</span><span>Restart</span>
+          <span class="key">N</span><span>Music</span>
         </div>
       </div>
-      <button onClick="{{ toggleMute }}" style="background:rgba(12,16,26,0.92);border:1px solid rgba(0,229,255,0.16);border-radius:12px;padding:11px 16px;color:#9AA6B8;font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;letter-spacing:0.1em;cursor:pointer;text-align:left;transition:border-color 0.2s, color 0.2s, box-shadow 0.2s" style-hover="border-color:rgba(0,229,255,0.7);color:#F4F4F4;box-shadow:0 0 18px rgba(0,229,255,0.25)">{{ muteLabel }}</button>
+      <button class="mute-btn" id="muteBtn">SOUND: ON (M)</button>
+      <button class="mute-btn" id="musicBtn">MUSIC: ON (N)</button>
     </div>
 
-    <!-- BOARD -->
-    <div style="position:relative;background:rgba(12,16,26,0.92);border:1px solid rgba(0,229,255,0.22);border-radius:12px;padding:12px;box-shadow:0 0 45px rgba(0,229,255,0.10), 0 0 120px rgba(0,229,255,0.05), inset 0 0 30px rgba(0,229,255,0.03)">
-      <canvas ref="{{ boardRef }}" width="320" height="640" style="display:block;width:320px;height:640px;border-radius:6px"></canvas>
-      <sc-if value="{{ paused }}" hint-placeholder-val="{{ false }}">
-        <div style="position:absolute;inset:12px;border-radius:6px;background:rgba(7,8,13,0.85);backdrop-filter:blur(3px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;animation:ovfade 0.2s ease-out">
-          <div style="font-size:30px;font-weight:700;letter-spacing:0.22em;color:#00E5FF;text-shadow:0 0 22px rgba(0,229,255,0.8), 0 0 60px rgba(0,229,255,0.4);animation:ovpop 0.25s ease-out">PAUSED</div>
-          <div style="font-size:13px;color:#8B94A3">Press <span style="font-family:'IBM Plex Mono',monospace;color:#00E5FF;text-shadow:0 0 8px rgba(0,229,255,0.6)">P</span> to resume</div>
-        </div>
-      </sc-if>
-      <sc-if value="{{ gameOver }}" hint-placeholder-val="{{ false }}">
-        <div style="position:absolute;inset:12px;border-radius:6px;background:rgba(7,8,13,0.9);backdrop-filter:blur(3px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;animation:ovfade 0.5s ease-out">
-          <div style="font-size:30px;font-weight:700;letter-spacing:0.16em;color:#FF4D6D;text-shadow:0 0 24px rgba(255,77,109,0.8), 0 0 70px rgba(255,77,109,0.35);animation:ovpop 0.35s ease-out">GAME OVER</div>
-          <div style="font-family:'IBM Plex Mono',monospace;font-size:18px;color:#F4F4F4;text-shadow:0 0 12px rgba(255,255,255,0.4)">{{ score }}</div>
-          <sc-if value="{{ newBest }}" hint-placeholder-val="{{ false }}">
-            <div style="font-size:12px;font-weight:600;letter-spacing:0.18em;color:#00E5FF;text-shadow:0 0 14px rgba(0,229,255,0.8);animation:neonbreathe 1.6s ease-in-out infinite">NEW HIGH SCORE</div>
-          </sc-if>
-          <button onClick="{{ restart }}" style="margin-top:6px;background:#00E5FF;border:none;border-radius:8px;padding:10px 22px;color:#07080D;font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:700;letter-spacing:0.1em;cursor:pointer;box-shadow:0 0 24px rgba(0,229,255,0.55);transition:box-shadow 0.2s, transform 0.15s" style-hover="box-shadow:0 0 40px rgba(0,229,255,0.85);transform:translateY(-1px)">PLAY AGAIN</button>
-        </div>
-      </sc-if>
+    <div class="board-col">
+    <div class="board-wrap">
+      <canvas id="board" width="320" height="640"></canvas>
+      <div class="overlay" id="pauseOverlay">
+        <div class="title">PAUSED</div>
+        <div class="hint">Press <span class="key">P</span> to resume</div>
+      </div>
+      <div class="overlay" id="overOverlay">
+        <div class="title">GAME OVER</div>
+        <div class="final-score" id="finalScore">0</div>
+        <div class="best-tag" id="bestTag">NEW HIGH SCORE</div>
+        <button class="play-again" id="playAgainBtn">PLAY AGAIN</button>
+      </div>
+    </div>
     </div>
 
-    <!-- RIGHT COLUMN -->
-    <div style="display:flex;flex-direction:column;gap:18px;width:172px">
-      <div style="background:rgba(12,16,26,0.92);border:1px solid rgba(0,229,255,0.16);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:14px;box-shadow:0 0 28px rgba(0,229,255,0.05), inset 0 0 22px rgba(0,229,255,0.03)">
-        <div>
-          <div style="font-size:12px;font-weight:600;letter-spacing:0.18em;color:#5FD9EC;text-shadow:0 0 10px rgba(0,229,255,0.45);margin-bottom:4px">SCORE</div>
-          <div style="font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:600;line-height:1;text-shadow:0 0 14px rgba(255,255,255,0.25)">{{ score }}</div>
-        </div>
-        <div style="display:flex;gap:18px">
+    <div class="col">
+      <div class="panel">
+        <div class="label">SCORE</div>
+        <div class="stat-value" id="scoreVal">0</div>
+        <div class="stat-row">
           <div>
-            <div style="font-size:12px;font-weight:600;letter-spacing:0.18em;color:#5FD9EC;text-shadow:0 0 10px rgba(0,229,255,0.45);margin-bottom:4px">LEVEL</div>
-            <div ref="{{ levelRef }}" style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;line-height:1;display:inline-block;transform-origin:left center">{{ level }}</div>
+            <div class="label" style="margin-bottom:4px">LEVEL</div>
+            <div class="stat-sub" id="levelVal">1</div>
           </div>
           <div>
-            <div style="font-size:12px;font-weight:600;letter-spacing:0.18em;color:#5FD9EC;text-shadow:0 0 10px rgba(0,229,255,0.45);margin-bottom:4px">LINES</div>
-            <div style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;line-height:1">{{ lines }}</div>
+            <div class="label" style="margin-bottom:4px">LINES</div>
+            <div class="stat-sub" id="linesVal">0</div>
           </div>
         </div>
-        <div>
-          <div style="font-size:12px;font-weight:600;letter-spacing:0.18em;color:#5FD9EC;text-shadow:0 0 10px rgba(0,229,255,0.45);margin-bottom:4px">BEST</div>
-          <div style="font-family:'IBM Plex Mono',monospace;font-size:15px;color:#9AA6B8;line-height:1">{{ best }}</div>
+        <div style="margin-top:14px">
+          <div class="label" style="margin-bottom:4px">BEST</div>
+          <div class="best-value" id="bestVal">0</div>
         </div>
       </div>
-      <div style="background:rgba(12,16,26,0.92);border:1px solid rgba(0,229,255,0.16);border-radius:12px;padding:16px;box-shadow:0 0 28px rgba(0,229,255,0.05), inset 0 0 22px rgba(0,229,255,0.03)">
-        <div style="font-size:12px;font-weight:600;letter-spacing:0.18em;color:#5FD9EC;text-shadow:0 0 10px rgba(0,229,255,0.45);margin-bottom:10px">NEXT</div>
-        <canvas ref="{{ nextRef }}" width="140" height="330" style="display:block;width:140px;height:330px"></canvas>
+      <div class="panel">
+        <div class="label">NEXT</div>
+        <canvas id="next" width="140" height="330"></canvas>
       </div>
+      <div class="byline">BY LO STUDIO</div>
     </div>
 
-    <!-- TOUCH CONTROLS -->
-    <sc-if value="{{ showTouch }}" hint-placeholder-val="{{ false }}">
-      <div style="width:100%;display:flex;justify-content:center;gap:10px;flex-wrap:wrap">
-        <button onClick="{{ tLeft }}" style="background:rgba(12,16,26,0.92);border:1px solid rgba(0,229,255,0.2);border-radius:12px;min-width:56px;min-height:52px;color:#F4F4F4;font-size:20px;cursor:pointer">←</button>
-        <button onClick="{{ tRight }}" style="background:rgba(12,16,26,0.92);border:1px solid rgba(0,229,255,0.2);border-radius:12px;min-width:56px;min-height:52px;color:#F4F4F4;font-size:20px;cursor:pointer">→</button>
-        <button onClick="{{ tDown }}" style="background:rgba(12,16,26,0.92);border:1px solid rgba(0,229,255,0.2);border-radius:12px;min-width:56px;min-height:52px;color:#F4F4F4;font-size:20px;cursor:pointer">↓</button>
-        <button onClick="{{ tRotate }}" style="background:rgba(12,16,26,0.92);border:1px solid rgba(0,229,255,0.2);border-radius:12px;min-width:56px;min-height:52px;color:#00E5FF;font-size:20px;cursor:pointer">⟳</button>
-        <button onClick="{{ tHold }}" style="background:rgba(12,16,26,0.92);border:1px solid rgba(0,229,255,0.2);border-radius:12px;min-width:56px;min-height:52px;color:#F4F4F4;font-size:13px;font-weight:600;cursor:pointer">HOLD</button>
-        <button onClick="{{ tDrop }}" style="background:#00E5FF;border:none;border-radius:12px;min-width:72px;min-height:52px;color:#07080D;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 0 20px rgba(0,229,255,0.5)">DROP</button>
-      </div>
-    </sc-if>
+    <div class="touch-row" id="touchRow">
+      <button class="touch-btn" id="tLeft">&larr;</button>
+      <button class="touch-btn" id="tRight">&rarr;</button>
+      <button class="touch-btn" id="tDown">&darr;</button>
+      <button class="touch-btn rotate" id="tRotate">&#9083;</button>
+      <button class="touch-btn hold" id="tHold">HOLD</button>
+      <button class="touch-btn drop" id="tDrop">DROP</button>
+    </div>
   </div>
 </div>
-</x-dc>
-<script type="text/x-dc" data-dc-script data-props="{
-  &quot;showGhost&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Gameplay&quot;},
-  &quot;colorblind&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: false, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Accessibility&quot;},
-  &quot;startLevel&quot;: {&quot;editor&quot;: &quot;int&quot;, &quot;default&quot;: 1, &quot;min&quot;: 1, &quot;max&quot;: 15, &quot;tsType&quot;: &quot;number&quot;, &quot;section&quot;: &quot;Gameplay&quot;}
-}">
-class Component extends DCLogic {
-  state = { score: 0, level: 1, lines: 0, best: 0, paused: false, gameOver: false, newBest: false, muted: false, showTouch: false };
 
-  // ---------- constants ----------
-  get COLS() { return 10; }
-  get ROWS() { return 22; }      // 2 hidden
-  get HIDDEN() { return 2; }
-  get CELL() { return 32; }
-
-  get SHAPES() {
-    return {
-      I: [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
-      O: [[1,1],[1,1]],
-      T: [[0,1,0],[1,1,1],[0,0,0]],
-      S: [[0,1,1],[1,1,0],[0,0,0]],
-      Z: [[1,1,0],[0,1,1],[0,0,0]],
-      J: [[1,0,0],[1,1,1],[0,0,0]],
-      L: [[0,0,1],[1,1,1],[0,0,0]]
-    };
-  }
-  get COLORS() {
-    if (this.props.colorblind) {
-      return { I:'#56B4E9', O:'#F0E442', T:'#CC79A7', S:'#009E73', Z:'#D55E00', J:'#0072B2', L:'#E69F00' };
-    }
-    return { I:'#00E5FF', O:'#FFE14D', T:'#E24DFF', S:'#4DFF88', Z:'#FF4D6D', J:'#5C7CFF', L:'#FF9E3D' };
-  }
-  get KICKS() {
-    return {
-      '0>1': [[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],
-      '1>0': [[0,0],[1,0],[1,1],[0,-2],[1,-2]],
-      '1>2': [[0,0],[1,0],[1,1],[0,-2],[1,-2]],
-      '2>1': [[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],
-      '2>3': [[0,0],[1,0],[1,-1],[0,2],[1,2]],
-      '3>2': [[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]],
-      '3>0': [[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]],
-      '0>3': [[0,0],[1,0],[1,-1],[0,2],[1,2]]
-    };
-  }
-  get I_KICKS() {
-    return {
-      '0>1': [[0,0],[-2,0],[1,0],[-2,1],[1,-2]],
-      '1>0': [[0,0],[2,0],[-1,0],[2,-1],[-1,2]],
-      '1>2': [[0,0],[-1,0],[2,0],[-1,-2],[2,1]],
-      '2>1': [[0,0],[1,0],[-2,0],[1,2],[-2,-1]],
-      '2>3': [[0,0],[2,0],[-1,0],[2,-1],[-1,2]],
-      '3>2': [[0,0],[-2,0],[1,0],[-2,1],[1,-2]],
-      '3>0': [[0,0],[1,0],[-2,0],[1,2],[-2,-1]],
-      '0>3': [[0,0],[-1,0],[2,0],[-1,-2],[2,1]]
-    };
-  }
-
-  // ---------- lifecycle ----------
-  componentDidMount() {
-    this.audioCtx = null;
-    this.keys = {};
-    this.dasDir = 0; this.dasTime = 0; this.arrTime = 0;
-    this.trail = null;
-    this.clearing = null;
-    this.lockTimer = -1; this.lockResets = 0;
-    this.gravAcc = 0;
-    this.softHeld = false;
-    this.vis = { x: 3, y: 0 };          // smoothed visual position of active piece
-    this.rotPulse = 0;                   // ms remaining of rotate pop
-    this.shake = 0;                      // ms remaining of hard-drop board shake
-    this.last = performance.now();
-    let best = 0, muted = false;
-    try {
-      best = parseInt(localStorage.getItem('tetris-best') || '0', 10) || 0;
-      muted = localStorage.getItem('tetris-muted') === '1';
-    } catch (e) {}
-    this.setState({ best, muted, showTouch: window.matchMedia('(pointer: coarse)').matches });
-    this.newGame();
-    this.onKeyDown = (e) => this.keyDown(e);
-    this.onKeyUp = (e) => { this.keys[e.code] = false; if (e.code === 'ArrowDown') this.softHeld = false; if (e.code === 'ArrowLeft' && this.dasDir === -1) this.dasDir = 0; if (e.code === 'ArrowRight' && this.dasDir === 1) this.dasDir = 0; };
-    this.onBlur = () => { if (!this.state.gameOver && !this.state.paused && this.started) this.setState({ paused: true }); };
-    window.addEventListener('keydown', this.onKeyDown);
-    window.addEventListener('keyup', this.onKeyUp);
-    window.addEventListener('blur', this.onBlur);
-    this.raf = requestAnimationFrame((t) => this.loop(t));
-  }
-  componentWillUnmount() {
-    cancelAnimationFrame(this.raf);
-    window.removeEventListener('keydown', this.onKeyDown);
-    window.removeEventListener('keyup', this.onKeyUp);
-    window.removeEventListener('blur', this.onBlur);
-  }
-
-  // ---------- game setup ----------
-  newGame() {
-    this.grid = Array.from({ length: this.ROWS }, () => Array(this.COLS).fill(null));
-    this.bag = [];
-    this.queue = [];
-    while (this.queue.length < 5) this.queue.push(this.drawBag());
-    this.hold = null; this.holdUsed = false;
-    this.trail = null; this.clearing = null;
-    this.gravAcc = 0; this.lockTimer = -1; this.lockResets = 0;
-    this.started = true;
-    const lvl = Math.max(1, Math.min(15, this.props.startLevel ?? 1));
-    this.setState({ score: 0, level: lvl, lines: 0, paused: false, gameOver: false, newBest: false });
-    this.spawn();
-  }
-  drawBag() {
-    if (this.bag.length === 0) {
-      this.bag = ['I','O','T','S','Z','J','L'];
-      for (let i = this.bag.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [this.bag[i], this.bag[j]] = [this.bag[j], this.bag[i]];
-      }
-    }
-    return this.bag.pop();
-  }
-  spawn(type) {
-    const t = type || this.queue.shift();
-    while (this.queue.length < 5) this.queue.push(this.drawBag());
-    const shape = this.SHAPES[t].map(r => r.slice());
-    const p = { type: t, shape, rot: 0, x: t === 'O' ? 4 : 3, y: 0 };
-    this.active = p;
-    this.holdUsed = type ? this.holdUsed : false;
-    this.lockTimer = -1; this.lockResets = 0; this.gravAcc = 0;
-    if (this.collides(p.shape, p.x, p.y)) {
-      p.y = -1;
-      if (this.collides(p.shape, p.x, p.y)) this.endGame();
-    }
-    this.vis = { x: p.x, y: p.y - 0.6 };   // slide in from above
-    this.forceUpdate();
-  }
-  endGame() {
-    this.started = false;
-    const nb = this.state.score > this.state.best;
-    if (nb) { try { localStorage.setItem('tetris-best', String(this.state.score)); } catch (e) {} }
-    this.setState({ gameOver: true, newBest: nb, best: Math.max(this.state.best, this.state.score) });
-    this.sfx('gameover');
-  }
-
-  // ---------- mechanics ----------
-  collides(shape, px, py) {
-    for (let y = 0; y < shape.length; y++) for (let x = 0; x < shape[y].length; x++) {
-      if (!shape[y][x]) continue;
-      const gx = px + x, gy = py + y;
-      if (gx < 0 || gx >= this.COLS || gy >= this.ROWS) return true;
-      if (gy >= 0 && this.grid[gy][gx]) return true;
-    }
-    return false;
-  }
-  tryMove(dx, dy) {
-    const p = this.active;
-    if (!p || this.clearing) return false;
-    if (!this.collides(p.shape, p.x + dx, p.y + dy)) {
-      p.x += dx; p.y += dy;
-      if (dx !== 0 && this.lockTimer >= 0 && this.lockResets < 15) { this.lockTimer = 0; this.lockResets++; }
-      return true;
-    }
-    return false;
-  }
-  rotate(dir) {
-    const p = this.active;
-    if (!p || p.type === 'O' || this.clearing) return;
-    const n = p.shape.length;
-    const rotated = Array.from({ length: n }, () => Array(n).fill(0));
-    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
-      if (dir === 1) rotated[x][n - 1 - y] = p.shape[y][x];
-      else rotated[n - 1 - x][y] = p.shape[y][x];
-    }
-    const from = p.rot, to = (p.rot + dir + 4) % 4;
-    const table = p.type === 'I' ? this.I_KICKS : this.KICKS;
-    const kicks = table[from + '>' + to] || [[0,0]];
-    for (const [kx, ky] of kicks) {
-      if (!this.collides(rotated, p.x + kx, p.y + ky)) {
-        p.shape = rotated; p.rot = to; p.x += kx; p.y += ky;
-        if (this.lockTimer >= 0 && this.lockResets < 15) { this.lockTimer = 0; this.lockResets++; }
-        this.rotPulse = 140;
-        this.sfx('rotate');
-        return;
-      }
-    }
-  }
-  ghostY() {
-    const p = this.active;
-    if (!p) return 0;
-    let y = p.y;
-    while (!this.collides(p.shape, p.x, y + 1)) y++;
-    return y;
-  }
-  hardDrop() {
-    const p = this.active;
-    if (!p || this.clearing) return;
-    const gy = this.ghostY();
-    const dist = gy - p.y;
-    if (dist > 0) {
-      this.trail = { x: p.x, fromY: Math.min(this.vis.y, p.y), toY: gy, shape: p.shape.map(r => r.slice()), color: this.COLORS[p.type], t: 0 };
-    }
-    p.y = gy;
-    this.vis.x = p.x; this.vis.y = gy;   // snap — trail carries the motion
-    this.shake = 120;
-    this.addScore(dist * 2);
-    this.sfx('harddrop');
-    this.lockPiece();
-  }
-  doHold() {
-    if (this.holdUsed || this.clearing || !this.active) return;
-    const cur = this.active.type;
-    const prev = this.hold;
-    this.hold = cur;
-    this.holdUsed = true;
-    if (prev) this.spawn(prev); else this.spawn();
-    this.sfx('move');
-  }
-  lockPiece() {
-    const p = this.active;
-    for (let y = 0; y < p.shape.length; y++) for (let x = 0; x < p.shape[y].length; x++) {
-      if (p.shape[y][x]) {
-        const gy = p.y + y, gx = p.x + x;
-        if (gy >= 0) this.grid[gy][gx] = p.type;
-      }
-    }
-    this.active = null;
-    let anyVisible = false;
-    for (let y = 0; y < p.shape.length; y++) for (let x = 0; x < p.shape[y].length; x++) {
-      if (p.shape[y][x] && p.y + y >= this.HIDDEN) anyVisible = true;
-    }
-    if (!anyVisible) { this.endGame(); return; }
-    const rows = [];
-    for (let y = 0; y < this.ROWS; y++) if (this.grid[y].every(c => c)) rows.push(y);
-    if (rows.length) {
-      this.clearing = { rows, t: 0 };
-      this.sfx('clear', rows.length);
-    } else {
-      this.sfx('lock');
-      this.spawn();
-    }
-  }
-  finishClear() {
-    const rows = this.clearing.rows;
-    this.clearing = null;
-    for (const r of rows) {
-      this.grid.splice(r, 1);
-      this.grid.unshift(Array(this.COLS).fill(null));
-    }
-    const pts = [0, 100, 300, 500, 800][rows.length] * this.state.level;
-    const newLines = this.state.lines + rows.length;
-    const startLvl = Math.max(1, Math.min(15, this.props.startLevel ?? 1));
-    const newLevel = Math.max(startLvl, Math.floor(newLines / 10) + 1);
-    const leveled = newLevel > this.state.level;
-    this.setState({ lines: newLines, level: newLevel });
-    this.addScore(pts);
-    if (leveled) {
-      this.sfx('levelup');
-      const el = this.levelEl;
-      if (el) { el.style.animation = 'none'; void el.offsetWidth; el.style.animation = 'lvlpulse 0.55s ease-out'; }
-    }
-    this.spawn();
-  }
-  addScore(n) {
-    if (n <= 0) return;
-    this.setState(s => ({ score: s.score + n }));
-  }
-  gravityMs() {
-    const l = this.state.level;
-    return Math.max(16, Math.pow(0.8 - (l - 1) * 0.007, l - 1) * 1000);
-  }
-
-  // ---------- input ----------
-  keyDown(e) {
-    const code = e.code;
-    if (['ArrowLeft','ArrowRight','ArrowDown','ArrowUp','Space'].includes(code)) e.preventDefault();
-    if (code === 'KeyR') { this.newGame(); return; }
-    if (code === 'KeyM') { this.toggleMuteFn(); return; }
-    if (code === 'KeyP') {
-      if (!this.state.gameOver) this.setState(s => ({ paused: !s.paused }));
-      return;
-    }
-    if (this.state.paused || this.state.gameOver || e.repeat) {
-      if (e.repeat) return;
-      if (this.state.paused || this.state.gameOver) return;
-    }
-    switch (code) {
-      case 'ArrowLeft':
-        if (this.tryMove(-1, 0)) this.sfx('move');
-        this.dasDir = -1; this.dasTime = 0; this.arrTime = 0;
-        break;
-      case 'ArrowRight':
-        if (this.tryMove(1, 0)) this.sfx('move');
-        this.dasDir = 1; this.dasTime = 0; this.arrTime = 0;
-        break;
-      case 'ArrowDown':
-        this.softHeld = true;
-        break;
-      case 'Space':
-        this.hardDrop();
-        break;
-      case 'KeyZ':
-        this.rotate(-1);
-        break;
-      case 'KeyX':
-      case 'ArrowUp':
-        this.rotate(1);
-        break;
-      case 'KeyC':
-        this.doHold();
-        break;
-    }
-  }
-
-  // ---------- main loop ----------
-  loop(t) {
-    this.raf = requestAnimationFrame((tt) => this.loop(tt));
-    const dt = Math.min(50, t - this.last);
-    this.last = t;
-    const playing = this.started && !this.state.paused && !this.state.gameOver;
-
-    if (playing && this.clearing) {
-      this.clearing.t += dt;
-      if (this.clearing.t >= 300) this.finishClear();
-    } else if (playing && this.active) {
-      if (this.dasDir !== 0) {
-        this.dasTime += dt;
-        if (this.dasTime > 150) {
-          this.arrTime += dt;
-          while (this.arrTime > 40) {
-            this.arrTime -= 40;
-            if (this.tryMove(this.dasDir, 0)) this.sfx('move');
-          }
-        }
-      }
-      const base = this.gravityMs();
-      const interval = this.softHeld ? Math.min(40, base / 20) : base;
-      this.gravAcc += dt;
-      while (this.gravAcc >= interval) {
-        this.gravAcc -= interval;
-        if (!this.collides(this.active.shape, this.active.x, this.active.y + 1)) {
-          this.active.y++;
-          if (this.softHeld) this.addScore(1);
-          this.lockTimer = -1;
-        } else {
-          if (this.lockTimer < 0) this.lockTimer = 0;
-        }
-      }
-      if (this.active && this.collides(this.active.shape, this.active.x, this.active.y + 1)) {
-        if (this.lockTimer < 0) this.lockTimer = 0;
-        this.lockTimer += dt;
-        if (this.lockTimer >= 500) this.lockPiece();
-      } else if (this.lockTimer >= 0 && this.active) {
-        this.lockTimer = -1;
-      }
-    }
-    // smooth visual position toward logical position
-    if (this.active) {
-      const p = this.active;
-      const kx = 1 - Math.exp(-dt / 38);
-      const ky = 1 - Math.exp(-dt / 55);
-      this.vis.x += (p.x - this.vis.x) * kx;
-      this.vis.y += (p.y - this.vis.y) * ky;
-      if (Math.abs(p.x - this.vis.x) < 0.01) this.vis.x = p.x;
-      if (Math.abs(p.y - this.vis.y) < 0.01) this.vis.y = p.y;
-    }
-    if (this.rotPulse > 0) this.rotPulse = Math.max(0, this.rotPulse - dt);
-    if (this.shake > 0) this.shake = Math.max(0, this.shake - dt);
-    if (this.trail) {
-      this.trail.t += dt;
-      if (this.trail.t > 220) this.trail = null;
-    }
-    this.draw(t);
-  }
-
-  // ---------- rendering ----------
-  draw(t) {
-    const cv = this.boardEl;
-    if (!cv) return;
-    const ctx = cv.getContext('2d');
-    const C = this.CELL, H = this.HIDDEN;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, 320, 640);
-    ctx.fillStyle = '#090C13';
-    ctx.fillRect(0, 0, 320, 640);
-    // board shake on hard drop
-    if (this.shake > 0) {
-      const k = this.shake / 120;
-      ctx.setTransform(1, 0, 0, 1, 0, Math.sin(this.shake * 0.25) * 3 * k);
-    }
-    // grid
-    ctx.strokeStyle = 'rgba(0,229,255,0.07)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (let x = 1; x < this.COLS; x++) { ctx.moveTo(x * C + 0.5, 0); ctx.lineTo(x * C + 0.5, 640); }
-    for (let y = 1; y < 20; y++) { ctx.moveTo(0, y * C + 0.5); ctx.lineTo(320, y * C + 0.5); }
-    ctx.stroke();
-    // hard-drop trail (additive glow)
-    if (this.trail) {
-      const tr = this.trail;
-      const k = 1 - tr.t / 220;
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      for (let x = 0; x < tr.shape[0].length; x++) {
-        let has = false;
-        for (let y = 0; y < tr.shape.length; y++) if (tr.shape[y][x]) has = true;
-        if (!has) continue;
-        const gx = (tr.x + x) * C;
-        const y0 = Math.max(0, (tr.fromY - H)) * C;
-        const y1 = (tr.toY - H + tr.shape.length) * C;
-        const g = ctx.createLinearGradient(0, y0, 0, y1);
-        g.addColorStop(0, 'rgba(0,0,0,0)');
-        g.addColorStop(1, tr.color);
-        ctx.globalAlpha = 0.4 * k;
-        ctx.fillStyle = g;
-        ctx.fillRect(gx + 5, y0, C - 10, Math.max(0, y1 - y0));
-      }
-      ctx.restore();
-      ctx.globalAlpha = 1;
-    }
-    // locked cells
-    const colors = this.COLORS;
-    const clearingRows = this.clearing ? this.clearing.rows : [];
-    for (let y = H; y < this.ROWS; y++) {
-      for (let x = 0; x < this.COLS; x++) {
-        const c = this.grid[y][x];
-        if (!c) continue;
-        if (clearingRows.includes(y)) continue;
-        this.cell(ctx, x * C, (y - H) * C, colors[c], C, 7);
-      }
-    }
-    // clearing rows: neon flash + shrink
-    if (this.clearing) {
-      const k = this.clearing.t / 300;
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      for (const r of clearingRows) {
-        const py = (r - H) * C;
-        if (k < 0.4) {
-          ctx.shadowColor = '#00E5FF';
-          ctx.shadowBlur = 26;
-          ctx.fillStyle = 'rgba(255,255,255,' + (0.95 - k) + ')';
-          ctx.fillRect(0, py, 320, C);
-        } else {
-          const s = 1 - (k - 0.4) / 0.6;
-          ctx.shadowColor = '#00E5FF';
-          ctx.shadowBlur = 30 * s;
-          ctx.fillStyle = 'rgba(190,245,255,' + (0.8 * s) + ')';
-          const h = C * s;
-          ctx.fillRect(0, py + (C - h) / 2, 320, h);
-        }
-      }
-      ctx.restore();
-    }
-    // ghost + active (drawn at smoothed position)
-    const p = this.active;
-    if (p && !this.clearing) {
-      const showGhost = this.props.showGhost ?? true;
-      const col = colors[p.type];
-      if (showGhost) {
-        const gy = this.ghostY();
-        ctx.save();
-        ctx.strokeStyle = col;
-        ctx.shadowColor = col;
-        ctx.shadowBlur = 10;
-        ctx.globalAlpha = 0.4;
-        ctx.lineWidth = 2;
-        for (let y = 0; y < p.shape.length; y++) for (let x = 0; x < p.shape[y].length; x++) {
-          if (!p.shape[y][x]) continue;
-          const vy = gy + y - H;
-          if (vy < 0) continue;
-          this.roundRectPath(ctx, (p.x + x) * C + 3, vy * C + 3, C - 6, C - 6, 6);
-          ctx.stroke();
-        }
-        ctx.restore();
-      }
-      // rotate pop scale
-      let scale = 1;
-      if (this.rotPulse > 0) {
-        const q = this.rotPulse / 140;
-        scale = 1 + 0.09 * Math.sin(q * Math.PI);
-      }
-      const cxp = (this.vis.x + p.shape.length / 2) * C;
-      const cyp = (this.vis.y + p.shape.length / 2 - H) * C;
-      ctx.save();
-      if (scale !== 1) {
-        ctx.translate(cxp, cyp);
-        ctx.scale(scale, scale);
-        ctx.translate(-cxp, -cyp);
-      }
-      for (let y = 0; y < p.shape.length; y++) for (let x = 0; x < p.shape[y].length; x++) {
-        if (!p.shape[y][x]) continue;
-        const vy = this.vis.y + y - H;
-        if (vy < -1) continue;
-        this.cell(ctx, (this.vis.x + x) * C, vy * C, col, C, 15);
-      }
-      ctx.restore();
-    }
-    this.drawHold();
-    this.drawNext();
-  }
-  roundRectPath(ctx, x, y, w, h, r) {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
-    ctx.closePath();
-  }
-  cell(ctx, px, py, color, size, glow) {
-    const C = size || this.CELL;
-    const inset = Math.max(1, Math.round(C * 0.045));
-    ctx.save();
-    if (glow) { ctx.shadowColor = color; ctx.shadowBlur = glow; }
-    this.roundRectPath(ctx, px + inset, py + inset, C - inset * 2, C - inset * 2, Math.round(C * 0.19));
-    ctx.fillStyle = color;
-    ctx.fill();
-    ctx.restore();
-    // glassy core
-    const g = ctx.createLinearGradient(0, py, 0, py + C);
-    g.addColorStop(0, 'rgba(255,255,255,0.35)');
-    g.addColorStop(0.45, 'rgba(255,255,255,0.02)');
-    g.addColorStop(1, 'rgba(0,0,0,0.25)');
-    ctx.fillStyle = g;
-    this.roundRectPath(ctx, px + inset, py + inset, C - inset * 2, C - inset * 2, Math.round(C * 0.19));
-    ctx.fill();
-  }
-  drawMini(ctx, type, cx, cy, cellSize, glow) {
-    if (!type) return;
-    const shape = this.SHAPES[type];
-    let minX = 9, maxX = -1, minY = 9, maxY = -1;
-    for (let y = 0; y < shape.length; y++) for (let x = 0; x < shape[y].length; x++) {
-      if (shape[y][x]) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y); }
-    }
-    const w = (maxX - minX + 1) * cellSize, h = (maxY - minY + 1) * cellSize;
-    const ox = cx - w / 2, oy = cy - h / 2;
-    for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) {
-      if (shape[y][x]) this.cell(ctx, ox + (x - minX) * cellSize, oy + (y - minY) * cellSize, this.COLORS[type], cellSize, glow || 8);
-    }
-  }
-  drawHold() {
-    const cv = this.holdEl;
-    if (!cv) return;
-    const ctx = cv.getContext('2d');
-    ctx.clearRect(0, 0, 140, 70);
-    if (this.hold) {
-      if (this.holdUsed) ctx.globalAlpha = 0.35;
-      this.drawMini(ctx, this.hold, 70, 35, 16, 10);
-      ctx.globalAlpha = 1;
-    } else {
-      ctx.fillStyle = 'rgba(95,217,236,0.35)';
-      ctx.font = '12px "IBM Plex Mono", monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText('EMPTY', 70, 39);
-    }
-  }
-  drawNext() {
-    const cv = this.nextEl;
-    if (!cv) return;
-    const ctx = cv.getContext('2d');
-    ctx.clearRect(0, 0, 140, 330);
-    for (let i = 0; i < Math.min(5, this.queue.length); i++) {
-      ctx.globalAlpha = i === 0 ? 1 : 0.65;
-      this.drawMini(ctx, this.queue[i], 70, 34 + i * 66, i === 0 ? 17 : 14, i === 0 ? 12 : 6);
-    }
-    ctx.globalAlpha = 1;
-  }
-
-  // ---------- audio ----------
-  ac() {
-    if (!this.audioCtx) {
-      try { this.audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
-    }
-    if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
-    return this.audioCtx;
-  }
-  beep(freq, dur, type, vol, when, slide) {
-    const ctx = this.ac();
-    if (!ctx || this.state.muted) return;
-    const t0 = ctx.currentTime + (when || 0);
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.type = type || 'square';
-    o.frequency.setValueAtTime(freq, t0);
-    if (slide) o.frequency.exponentialRampToValueAtTime(slide, t0 + dur);
-    g.gain.setValueAtTime(vol || 0.08, t0);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    o.connect(g); g.connect(ctx.destination);
-    o.start(t0); o.stop(t0 + dur + 0.02);
-  }
-  sfx(name, n) {
-    switch (name) {
-      case 'move': this.beep(220, 0.04, 'square', 0.04); break;
-      case 'rotate': this.beep(330, 0.05, 'square', 0.05); break;
-      case 'lock': this.beep(140, 0.08, 'triangle', 0.1); break;
-      case 'harddrop': this.beep(420, 0.09, 'sawtooth', 0.07, 0, 110); break;
-      case 'clear': {
-        const notes = [392, 494, 587, 784];
-        for (let i = 0; i < Math.min(n || 1, 4); i++) this.beep(notes[i], 0.12, 'square', 0.07, i * 0.06);
-        if ((n || 1) >= 4) this.beep(1046, 0.25, 'square', 0.08, 0.26);
-        break;
-      }
-      case 'levelup':
-        this.beep(523, 0.1, 'square', 0.07);
-        this.beep(659, 0.1, 'square', 0.07, 0.09);
-        this.beep(784, 0.18, 'square', 0.08, 0.18);
-        break;
-      case 'gameover':
-        this.beep(392, 0.18, 'triangle', 0.1);
-        this.beep(311, 0.18, 'triangle', 0.1, 0.16);
-        this.beep(233, 0.34, 'triangle', 0.1, 0.32);
-        break;
-    }
-  }
-  toggleMuteFn() {
-    this.setState(s => {
-      try { localStorage.setItem('tetris-muted', s.muted ? '0' : '1'); } catch (e) {}
-      return { muted: !s.muted };
-    });
-  }
-
-  // ---------- template values ----------
-  renderVals() {
-    const guard = (fn) => () => { if (!this.state.paused && !this.state.gameOver) fn(); };
-    return {
-      score: this.state.score,
-      level: this.state.level,
-      lines: this.state.lines,
-      best: Math.max(this.state.best, this.state.score),
-      paused: this.state.paused,
-      gameOver: this.state.gameOver,
-      newBest: this.state.newBest,
-      showTouch: this.state.showTouch,
-      muteLabel: this.state.muted ? 'SOUND: OFF (M)' : 'SOUND: ON (M)',
-      toggleMute: () => this.toggleMuteFn(),
-      restart: () => this.newGame(),
-      boardRef: (el) => { this.boardEl = el; },
-      holdRef: (el) => { this.holdEl = el; },
-      nextRef: (el) => { this.nextEl = el; },
-      levelRef: (el) => { this.levelEl = el; },
-      tLeft: guard(() => { if (this.tryMove(-1, 0)) this.sfx('move'); }),
-      tRight: guard(() => { if (this.tryMove(1, 0)) this.sfx('move'); }),
-      tDown: guard(() => { if (this.tryMove(0, 1)) this.addScore(1); }),
-      tRotate: guard(() => this.rotate(1)),
-      tHold: guard(() => this.doHold()),
-      tDrop: guard(() => this.hardDrop())
-    };
-  }
-}
-</script>
+<script src="tetris.js"></script>
 </body>
 </html>
